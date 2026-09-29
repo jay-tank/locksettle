@@ -1,0 +1,361 @@
+{
+  "name": "locksettle",
+  "displayName": "LockSettle",
+  "description": "Fix lockfile merge conflicts the right way. Detects conflict markers in package-lock.json, yarn.lock, pnpm-lock.yaml, poetry.lock, uv.lock, Cargo.lock, go.sum, composer.lock, Gemfile.lock and Pipfile.lock, checks the manifest first, then regenerates the lockfile with the right tool in a visible task.",
+  "version": "0.1.0",
+  "publisher": "jaytankdev",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Linters"
+  ],
+  "keywords": [
+    "lockfile",
+    "merge conflict",
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "poetry.lock",
+    "go.sum",
+    "Cargo.lock",
+    "git",
+    "rebase"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "workspaceContains:**/package-lock.json",
+    "workspaceContains:**/npm-shrinkwrap.json",
+    "workspaceContains:**/yarn.lock",
+    "workspaceContains:**/pnpm-lock.yaml",
+    "workspaceContains:**/poetry.lock",
+    "workspaceContains:**/uv.lock",
+    "workspaceContains:**/Cargo.lock",
+    "workspaceContains:**/go.sum",
+    "workspaceContains:**/composer.lock",
+    "workspaceContains:**/Gemfile.lock",
+    "workspaceContains:**/Pipfile.lock",
+    "onView:locksettle.lockfiles"
+  ],
+  "main": "./extension.js",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#2A1B6B",
+    "theme": "dark"
+  },
+  "license": "MIT",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In an untrusted workspace LockSettle only reads lockfiles and manifests to show conflict warnings. It runs no git command and no package manager until the workspace is trusted."
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "locksettle.regenerate",
+        "title": "Regenerate lockfile",
+        "category": "LockSettle",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "locksettle.showConflicted",
+        "title": "Show conflicted lockfiles",
+        "category": "LockSettle"
+      },
+      {
+        "command": "locksettle.stage",
+        "title": "Stage lockfile",
+        "category": "LockSettle"
+      },
+      {
+        "command": "locksettle.rescan",
+        "title": "Rescan lockfiles",
+        "category": "LockSettle",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "locksettle.openManifest",
+        "title": "Open manifest",
+        "category": "LockSettle",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "locksettle.openLockfile",
+        "title": "Open lockfile",
+        "category": "LockSettle"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "locksettle",
+          "title": "LockSettle",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "locksettle": [
+        {
+          "id": "locksettle.lockfiles",
+          "name": "Conflicted lockfiles",
+          "icon": "media/activity.svg",
+          "contextualTitle": "LockSettle"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "locksettle.lockfiles",
+        "contents": "LockSettle is turned off.\n[Open LockSettle Settings](command:workbench.action.openSettings?%5B%22locksettle.%22%5D)",
+        "when": "!config.locksettle.enabled"
+      },
+      {
+        "view": "locksettle.lockfiles",
+        "contents": "No lockfile has merge conflict markers.\nLockSettle watches package-lock.json, yarn.lock, pnpm-lock.yaml, poetry.lock, uv.lock, Cargo.lock, go.sum, composer.lock, Gemfile.lock and Pipfile.lock for merge conflicts, and regenerates a conflicted one with its own package manager after the manifest is resolved.\n[Rescan lockfiles](command:locksettle.rescan)",
+        "when": "config.locksettle.enabled && isWorkspaceTrusted"
+      },
+      {
+        "view": "locksettle.lockfiles",
+        "contents": "No lockfile has merge conflict markers.\nLockSettle watches package-lock.json, yarn.lock, pnpm-lock.yaml, poetry.lock, uv.lock, Cargo.lock, go.sum, composer.lock, Gemfile.lock and Pipfile.lock for merge conflicts. In this untrusted workspace it only shows warnings; git and package managers run after you trust the folder.\n[Rescan lockfiles](command:locksettle.rescan)\n[Manage Workspace Trust](command:workbench.trust.manage)",
+        "when": "config.locksettle.enabled && !isWorkspaceTrusted"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "locksettle.stage",
+          "when": "false"
+        },
+        {
+          "command": "locksettle.openLockfile",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "locksettle.rescan",
+          "when": "view == locksettle.lockfiles",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "locksettle.regenerate",
+          "when": "view == locksettle.lockfiles && viewItem =~ /^lockfile/",
+          "group": "inline@1"
+        },
+        {
+          "command": "locksettle.openManifest",
+          "when": "view == locksettle.lockfiles && viewItem =~ /^lockfile/",
+          "group": "inline@2"
+        },
+        {
+          "command": "locksettle.regenerate",
+          "when": "view == locksettle.lockfiles && viewItem =~ /^lockfile/",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "locksettle.openManifest",
+          "when": "view == locksettle.lockfiles && viewItem =~ /^lockfile/",
+          "group": "1_actions@2"
+        }
+      ]
+    },
+    "taskDefinitions": [
+      {
+        "type": "locksettle",
+        "required": [
+          "lockfile"
+        ],
+        "properties": {
+          "lockfile": {
+            "type": "string",
+            "description": "Workspace-relative path of the lockfile to regenerate."
+          },
+          "ecosystem": {
+            "type": "string",
+            "description": "Package ecosystem."
+          }
+        }
+      }
+    ],
+    "configuration": {
+      "title": "LockSettle",
+      "properties": {
+        "locksettle.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Watch the workspace for lockfiles with merge conflict markers."
+        },
+        "locksettle.notify": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show one notification when a lockfile gets merge conflict markers."
+        },
+        "locksettle.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a Regenerate CodeLens on line 1 of a conflicted lockfile."
+        },
+        "locksettle.lockfileBase": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "keep",
+              "ours",
+              "theirs"
+            ]
+          },
+          "markdownDescription": "Starting point for the lockfile before the tool runs, per ecosystem. `keep` leaves the conflict markers in (default for npm, yarn and pnpm, which merge both sides themselves), `ours` runs `git checkout --ours -- <lockfile>` (default for all others), `theirs` runs `git checkout --theirs`. During a rebase git swaps the meaning of ours and theirs. Example: `{\"npm\": \"ours\"}`."
+        },
+        "locksettle.yarnFlavor": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "classic",
+            "berry"
+          ],
+          "default": "auto",
+          "markdownDescription": "Yarn version. `auto` reads the `packageManager` field of package.json, then looks for `.yarnrc.yml`, then at the lockfile format."
+        },
+        "locksettle.poetryVersion": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "1",
+            "2"
+          ],
+          "default": "auto",
+          "markdownDescription": "Poetry major version. `auto` reads the `@generated by Poetry X` header of poetry.lock (Poetry 2 when unknown). Poetry 1 uses `poetry lock --no-update`, Poetry 2 uses `poetry lock`."
+        },
+        "locksettle.commands.npm": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": "",
+          "markdownDescription": "Command that regenerates the lockfile for npm. Empty uses the built-in `npm install --package-lock-only --ignore-scripts`. A string is split into words without a shell (quotes are supported); an array is used as is."
+        },
+        "locksettle.commands.yarn": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": "",
+          "markdownDescription": "Command that regenerates the lockfile for yarn. Empty uses the built-in `yarn install --ignore-scripts (classic) / yarn install --mode=update-lockfile (berry)`. A string is split into words without a shell (quotes are supported); an array is used as is. Also applies to Yarn berry unless `locksettle.commands.yarnBerry` is set."
+        },
+        "locksettle.commands.yarnBerry": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": "",
+          "markdownDescription": "Command that regenerates the lockfile for yarnBerry. Empty uses the built-in `yarn install --mode=update-lockfile`. A string is split into words without a shell (quotes are supported); an array is used as is."
+        },
+        "locksettle.commands.pnpm": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": "",
+          "markdownDescription": "Command that regenerates the lockfile for pnpm. Empty uses the built-in `pnpm install --lockfile-only --ignore-scripts`. A string is split into words without a shell (quotes are supported); an array is used as is."
+        },
+        "locksettle.commands.poetry": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": "",
+          "markdownDescription": "Command that regenerates the lockfile for poetry. Empty uses the built-in `poetry lock --no-update (Poetry 1) / poetry lock (Poetry 2)`. A string is split into words without a shell (quotes are supported); an array is used as is."
+        },
+        "locksettle.commands.uv": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": "",
+          "markdownDescription": "Command that regenerates the lockfile for uv. Empty uses the built-in `uv lock`. A string is split into words without a shell (quotes are supported); an array is used as is."
+        },
+        "locksettle.commands.cargo": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": "",
+          "markdownDescription": "Command that regenerates the lockfile for cargo. Empty uses the built-in `cargo update --workspace`. A string is split into words without a shell (quotes are supported); an array is used as is."
+        },
+        "locksettle.commands.go": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": "",
+          "markdownDescription": "Command that regenerates the lockfile for go. Empty uses the built-in `go mod tidy`. A string is split into words without a shell (quotes are supported); an array is used as is."
+        },
+        "locksettle.commands.composer": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": "",
+          "markdownDescription": "Command that regenerates the lockfile for composer. Empty uses the built-in `composer update --lock --no-install --no-scripts`. A string is split into words without a shell (quotes are supported); an array is used as is."
+        },
+        "locksettle.commands.bundler": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": "",
+          "markdownDescription": "Command that regenerates the lockfile for bundler. Empty uses the built-in `bundle lock`. A string is split into words without a shell (quotes are supported); an array is used as is."
+        },
+        "locksettle.commands.pipenv": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": "",
+          "markdownDescription": "Command that regenerates the lockfile for pipenv. Empty uses the built-in `pipenv lock`. A string is split into words without a shell (quotes are supported); an array is used as is."
+        }
+      }
+    }
+  }
+}
